@@ -27,7 +27,7 @@ public interface SignProvider {
    * @return signature
    * @throws SignException
    */
-  String sign(byte[] key, byte[] content) throws SignException;
+  String sign(KeyInfo keyInfo, byte[] content) throws SignException;
 
   /**
    * Verifies a signature against content using a public key
@@ -36,5 +36,5 @@ public interface SignProvider {
    * @param signed
    * @throws SignException when verification does not pass
    */
-  void verify(byte[] key, byte[] content, byte[] signed) throws SignException;
+  void verify(KeyInfo keyInfo, byte[] content, byte[] signed) throws SignException;
 } 

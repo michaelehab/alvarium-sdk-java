@@ -16,6 +16,10 @@ package com.alvarium.annotators;
 
 import java.io.Serializable;
 
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
+import com.alvarium.utils.Encoder;
 import com.google.gson.Gson;
 
 /**
@@ -46,5 +50,9 @@ class Signable implements Serializable {
   protected String toJson() {
     final Gson gson = new Gson();
     return gson.toJson(this);
+  }
+
+  protected void verifySignature(KeyInfo key, SignProvider signProvider) throws SignException {
+    signProvider.verify(key, seed.getBytes(), Encoder.hexToBytes(signature));
   }
 }

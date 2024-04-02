@@ -18,42 +18,65 @@ import org.apache.logging.log4j.Logger;
 import com.alvarium.SdkInfo;
 import com.alvarium.annotators.sbom.SbomAnnotatorConfig;
 import com.alvarium.annotators.vulnerability.VulnerabilityAnnotatorConfig;
-import com.alvarium.hash.HashType;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
+import com.alvarium.hash.HashProviderFactory;
+import com.alvarium.hash.HashTypeException;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
+import com.alvarium.sign.SignProviderFactory;
 
 public class AnnotatorFactory {
 
   public Annotator getAnnotator(AnnotatorConfig cfg, SdkInfo config, Logger logger) throws AnnotatorException {
-    final HashType hash = config.getHash().getType();
-    final SignatureInfo signature = config.getSignature();
-    switch (cfg.getKind()) {
-      case MOCK:
+    final HashProvider hashProvider;
+    final SignProvider signProvider;
+
+    try {
+      hashProvider = new HashProviderFactory().getProvider(config.getHash().getType());
+    }
+    catch (HashTypeException ex) {
+      throw new AnnotatorException("Invalid hash type", ex);
+    }
+
+    // Mock Annotator does not use a sign provider
+    if (cfg.getKind().equals(AnnotationType.MOCK)) {
         try {
-            MockAnnotatorConfig mockCfg = MockAnnotatorConfig.class.cast(cfg);
-            return new MockAnnotator(mockCfg, hash, signature);
-        } catch(ClassCastException e) {
-            throw new AnnotatorException("Invalid annotator config", e);
-        }
+          MockAnnotatorConfig mockCfg = MockAnnotatorConfig.class.cast(cfg);
+          return new MockAnnotator(mockCfg, config, hashProvider);
+      } catch(ClassCastException e) {
+          throw new AnnotatorException("Invalid annotator config", e);
+      }
+    }
+
+    try {
+      signProvider = new SignProviderFactory().getProvider(config.getSignature().getPrivateKey().getType());
+    }
+    catch (SignException ex) {
+      throw new AnnotatorException("Invalid sign provider", ex);
+    }
+
+    switch (cfg.getKind()) {
       case TLS:
-        return new TlsAnnotator(hash, signature, logger);
+        return new TlsAnnotator(config, hashProvider, signProvider, logger);
       case PKI:
-        return new PkiAnnotator(hash, signature, logger);
+        return new PkiAnnotator(config, hashProvider, signProvider, logger);
       case PKIHttp:
-        return new PkiHttpAnnotator(hash, signature, logger);
+        return new PkiHttpAnnotator(config, hashProvider, signProvider, logger);
       case TPM:
-        return new TpmAnnotator(hash, signature, logger);
+        return new TpmAnnotator(config, hashProvider, signProvider, logger);
       case SourceCode:
-        return new SourceCodeAnnotator(hash, signature, logger);
+        return new SourceCodeAnnotator(config, hashProvider, signProvider, logger);
       case CHECKSUM:
-        return new ChecksumAnnotator(hash, signature, logger);
+        return new ChecksumAnnotator(config, hashProvider, signProvider, logger);
       case VULNERABILITY:
         VulnerabilityAnnotatorConfig vulnCfg = VulnerabilityAnnotatorConfig.class.cast(cfg);
-        return new VulnerabilityAnnotator(vulnCfg, hash, signature, logger);
+        return new VulnerabilityAnnotator(vulnCfg, config, hashProvider, signProvider, logger);
       case SOURCE:
-        return new SourceAnnotator(hash, signature, logger);
+        return new SourceAnnotator(config, hashProvider, signProvider, logger);
       case SBOM:
         final SbomAnnotatorConfig sbomCfg = SbomAnnotatorConfig.class.cast(cfg);
-        return new SbomAnnotator(sbomCfg, hash, signature, logger);
+        return new SbomAnnotator(sbomCfg, config, hashProvider, signProvider, logger);
       default:
         throw new AnnotatorException("Annotator type is not supported");
     }

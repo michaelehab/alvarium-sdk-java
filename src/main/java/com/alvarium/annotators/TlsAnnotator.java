@@ -22,22 +22,30 @@ import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 class TlsAnnotator extends AbstractAnnotator implements Annotator {
-  private final HashType hash;
+  private final HashProvider hash;
+  private final SignProvider signature;
+  private final HashType hashType;
   private final AnnotationType kind;
-  private final SignatureInfo signatureInfo;
+  private final KeyInfo privateKey;
   
-  protected TlsAnnotator(HashType hash, SignatureInfo signatureInfo, Logger logger) {
+  protected TlsAnnotator(SdkInfo cfg, HashProvider hash, SignProvider signature, Logger logger) {
     super(logger);
     this.hash = hash;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.TLS;
-    this.signatureInfo = signatureInfo;
+    this.signature = signature;
+    this.privateKey = cfg.getSignature().getPrivateKey();
   }
 
   private Boolean verifyHandshake(SSLSocket socket) {
@@ -52,7 +60,7 @@ class TlsAnnotator extends AbstractAnnotator implements Annotator {
 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
     // hash incoming data
-    final String key = super.deriveHash(hash, data);
+    final String key = hash.derive(data);
 
     // get host name
     String host = "";
@@ -67,15 +75,18 @@ class TlsAnnotator extends AbstractAnnotator implements Annotator {
         SSLSocket.class));
 
     // create an annotation without signature
-    final Annotation annotation = new Annotation(key, hash, host, kind, null, isSatisfied, 
+    final Annotation annotation = new Annotation(key, hashType, host, kind, null, isSatisfied, 
         Instant.now());
 
     // sign annotation
-    final String signature = super.signAnnotation(signatureInfo.getPrivateKey(),
-        annotation);
+    try {
+      final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+      annotation.setSignature(annotationSignature);
+    }
+    catch (SignException ex) {
+      this.logger.error("Error during TlsAnnotator execution: ",ex);
+    }
 
-    // append signature to annotation
-    annotation.setSignature(signature);
     return annotation;
   }
 }

@@ -13,11 +13,8 @@
  *******************************************************************************/
 package com.alvarium.annotators.http;
 
-import java.io.IOException;
 import java.lang.StringBuilder;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import java.util.Date;
@@ -27,7 +24,6 @@ import com.alvarium.sign.SignProvider;
 import com.alvarium.sign.SignProviderFactory;
 import com.alvarium.sign.SignType;
 import com.alvarium.sign.SignatureInfo;
-import com.alvarium.utils.Encoder;
 
 import org.apache.http.client.methods.HttpUriRequest;
 
@@ -86,16 +82,9 @@ public class Ed2551RequestHandler implements RequestHandler {
 			throw new RequestHandlerException("Invalid key type", e);
 		}
 
-		String privateKeyPath = "";
-		try {
-			privateKeyPath = Files.readString(Paths.get(keys.getPrivateKey().getPath()), StandardCharsets.US_ASCII);
-		} catch (IOException e) {
-			throw new RequestHandlerException("Cannot read key.", e);
-		}
-
 		String signature = "";
 		try {
-			signature = signProvider.sign(Encoder.hexToBytes(privateKeyPath), inputValue.getBytes());
+			signature = signProvider.sign(keys.getPrivateKey(), inputValue.getBytes());
 		} catch (SignException e) {
 			throw new RequestHandlerException("Cannot sign annotation.", e);
 		}

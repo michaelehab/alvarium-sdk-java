@@ -19,34 +19,42 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.Logger;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.annotators.sbom.SbomAnnotatorConfig;
 import com.alvarium.annotators.sbom.SbomException;
 import com.alvarium.annotators.sbom.SbomProvider;
 import com.alvarium.annotators.sbom.SbomProviderFactory;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 public class SbomAnnotator extends AbstractAnnotator implements Annotator {
-  final SbomAnnotatorConfig cfg;
+  final SbomAnnotatorConfig sbomCfg;
 
-  final HashType hash;
-  final SignatureInfo signature;
-  final AnnotationType kind;
+  private final HashProvider hash;
+  private final SignProvider signature;
+  private final HashType hashType;
+  private final AnnotationType kind;
+  private final KeyInfo privateKey;
 
-  protected SbomAnnotator(SbomAnnotatorConfig cfg, HashType hash, SignatureInfo signature, Logger logger) {
+  protected SbomAnnotator(SbomAnnotatorConfig sbomCfg, SdkInfo cfg, HashProvider hash, SignProvider signature, Logger logger) {
     super(logger);
-    this.cfg = cfg;
+    this.sbomCfg = sbomCfg;
     this.hash = hash;
-    this.signature = signature;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.SBOM;
+    this.signature = signature;
+    this.privateKey = cfg.getSignature().getPrivateKey();
   }
   
   @Override 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
-    final String key = deriveHash(this.hash, data);
+    final String key = hash.derive(data);
 
     String host = "";
     try{
@@ -57,7 +65,7 @@ public class SbomAnnotator extends AbstractAnnotator implements Annotator {
     
     boolean isSatisfied = false;
     try {
-      final SbomProvider sbom = new SbomProviderFactory().getProvider(this.cfg, this.logger);
+      final SbomProvider sbom = new SbomProviderFactory().getProvider(this.sbomCfg, this.logger);
       final String filePath = ctx.getProperty(AnnotationType.SBOM.name(), String.class);
       boolean isValid = sbom.validate(filePath);
       boolean exists = sbom.exists(filePath);
@@ -71,7 +79,7 @@ public class SbomAnnotator extends AbstractAnnotator implements Annotator {
     
     final Annotation annotation = new Annotation(
         key, 
-        hash, 
+        hashType, 
         host, 
         kind, 
         null, 
@@ -79,12 +87,13 @@ public class SbomAnnotator extends AbstractAnnotator implements Annotator {
         Instant.now()
     );
 
-    final String annotationSignature = super.signAnnotation(
-        this.signature.getPrivateKey(), 
-        annotation
-    );
-
-    annotation.setSignature(annotationSignature);
+    try {
+      final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+      annotation.setSignature(annotationSignature);
+    }
+    catch (SignException ex) {
+      this.logger.error("Error during SbomAnnotator execution: ",ex);
+    }
     return annotation;	
   }
 }

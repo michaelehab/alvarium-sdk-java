@@ -24,34 +24,36 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.Logger;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
 import com.alvarium.hash.HashProvider;
-import com.alvarium.hash.HashProviderFactory;
 import com.alvarium.hash.HashType;
-import com.alvarium.hash.HashTypeException;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
 
-    final private HashType hash;
-    final private SignatureInfo signature;
+    private final HashProvider hashProvider;
+    private final SignProvider signature;
+    private final HashType hashType;
     private final AnnotationType kind;
+    private final KeyInfo privateKey;
 
-    private HashProvider hashProvider;
-
-    protected ChecksumAnnotator(HashType hash, SignatureInfo signature, Logger logger) {
+    protected ChecksumAnnotator(SdkInfo cfg, HashProvider hashProvider, SignProvider signature, Logger logger) {
         super(logger);
-        this.hash = hash;
-        this.signature = signature;
+        this.hashProvider = hashProvider;
+        this.hashType = cfg.getHash().getType();
         this.kind = AnnotationType.CHECKSUM;
+        this.signature = signature;
+        this.privateKey = cfg.getSignature().getPrivateKey();
     }
     
     @Override
     public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
         
-        this.initHashProvider(this.hash);
         final String key = this.hashProvider.derive(data);
 
         final ChecksumAnnotatorProps props = ctx.getProperty(
@@ -78,7 +80,7 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
 
         final Annotation annotation = new Annotation(
             key, 
-            this.hash, 
+            this.hashType, 
             host, 
             this.kind, 
             null, 
@@ -86,28 +88,14 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
             Instant.now()
         );
 
-        final String annotationSignature = super.signAnnotation(
-            this.signature.getPrivateKey(), 
-            annotation
-        );
-        annotation.setSignature(annotationSignature);
-        return annotation;
-    }
-    
-    /**
-    *  Initializes a hash provider 
-    * @return HashProvider
-    * @throws AnnotatorException - If hashing algorithm not found, 
-    * or if an unknown exception was thrown
-    */
-    private final void initHashProvider(HashType hashType) throws AnnotatorException {
         try {
-             this.hashProvider = new HashProviderFactory().getProvider(hashType);
-        } catch (HashTypeException e) {
-            throw new AnnotatorException("Hashing algorithm not found, could not hash data or validate checksum", e);
-        } catch (Exception e) {
-            throw new AnnotatorException("Could not hash data or validate checksum", e);
+            final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+            annotation.setSignature(annotationSignature);
         }
+        catch (SignException ex) {
+            this.logger.error("Error during Checksum Annotator execution: ",ex);
+        }
+        return annotation;
     }
 
     /**

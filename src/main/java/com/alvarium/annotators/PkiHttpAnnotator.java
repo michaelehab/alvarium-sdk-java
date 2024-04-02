@@ -22,33 +22,42 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.nio.file.Path;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.annotators.http.ParseResult;
 import com.alvarium.annotators.http.ParseResultException;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
 import com.alvarium.sign.KeyInfo;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.sign.SignType;
 import com.alvarium.utils.PropertyBag;
 
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.logging.log4j.Logger;
 
-class PkiHttpAnnotator extends AbstractPkiAnnotator implements Annotator {
-  private final HashType hash;
-  private final SignatureInfo signature;
+class PkiHttpAnnotator extends AbstractAnnotator implements Annotator {
+  private final HashProvider hash;
+  private final SignProvider signature;
+  private final HashType hashType;
   private final AnnotationType kind;
+  private final KeyInfo privateKey;
+  private final KeyInfo publicKey;
 
-  protected PkiHttpAnnotator(HashType hash, SignatureInfo signature, Logger logger) {
+  protected PkiHttpAnnotator(SdkInfo cfg, HashProvider hash, SignProvider signature, Logger logger) {
     super(logger);
     this.hash = hash;
-    this.signature = signature;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.PKIHttp;
+    this.signature = signature;
+    this.privateKey = cfg.getSignature().getPrivateKey();
+    this.publicKey = cfg.getSignature().getPublicKey();
   }
 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
-    final String key = super.deriveHash(hash, data);
+    final String key = hash.derive(data);
 
     HttpUriRequest request;
     try {
@@ -68,41 +77,53 @@ class PkiHttpAnnotator extends AbstractPkiAnnotator implements Annotator {
 
     // Use the parsed request to obtain the key name and type we should use to
     // validate the signature
-    Path path = Paths.get(signature.getPublicKey().getPath());
+    
+    Path path = Paths.get(this.publicKey.getPath());
     Path directory = path.getParent();
     String publicKeyPath = String.join("/", directory.toString(), parsed.getKeyid());
-
+    
     SignType alg;
     try {
       alg = SignType.fromString(parsed.getAlgorithm());
     } catch (EnumConstantNotPresentException e) {
       throw new AnnotatorException("Invalid key type " + parsed.getAlgorithm());
     }
-    KeyInfo publicKey = new KeyInfo(publicKeyPath, alg);
-    SignatureInfo sig = new SignatureInfo(publicKey, signature.getPrivateKey());
+
+    KeyInfo k = new KeyInfo(publicKeyPath, alg);
 
     String host = "";
     boolean isSatisfied;
     try{
       host = InetAddress.getLocalHost().getHostName();
 
-      isSatisfied = verifySignature(sig.getPublicKey(), signable);
-    } catch (UnknownHostException | AnnotatorException e) {
+      try {
+        signable.verifySignature(k, signature);
+        isSatisfied = true;
+      }
+      catch (SignException ex) {
+        isSatisfied = false;
+      }
+    } catch (UnknownHostException e) {
       isSatisfied = false;
       this.logger.error("Error during PkiHttpAnnotator execution: ",e);
     }
  
     final Annotation annotation = new Annotation(
         key,
-        hash,
+        hashType,
         host,
         kind,
         null,
         isSatisfied,
         Instant.now());
 
-    final String annotationSignature = super.signAnnotation(sig.getPrivateKey(), annotation);
-    annotation.setSignature(annotationSignature);
+    try {
+      final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+      annotation.setSignature(annotationSignature);
+    }
+    catch (SignException ex) {
+      this.logger.error("Error during PkiHttpAnnotator execution: ",ex);
+    }
     return annotation;
   }
 }

@@ -14,6 +14,10 @@
  *******************************************************************************/
 package com.alvarium.sign;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
@@ -26,20 +30,25 @@ public class Ed25519Provider implements SignProvider {
 
   protected Ed25519Provider() {}
 
-  public String sign(byte[] key, byte[] content) throws SignException {
-    
-    // Private key passed as private key and public key appended to it
-    // so the private key of size 32-bytes is extracted 
-    final byte[] privateKey = Arrays.copyOfRange(key, 0, 32);
+  public String sign(KeyInfo keyInfo, byte[] content) throws SignException {
 
     final Ed25519Sign signer;
 
     try {
+      final String key = Files.readString(Paths.get(keyInfo.getPath()),
+          StandardCharsets.US_ASCII);
+
+      // Private key passed as private key and public key appended to it
+      // so the private key of size 32-bytes is extracted 
+      final byte[] privateKey = Arrays.copyOfRange(Encoder.hexToBytes(key), 0, 32);
+
       signer = new Ed25519Sign(privateKey);
     } catch(GeneralSecurityException e) {
       throw new SignException("SHA-512 not defined in EngineFactory.MESSAGE_DIGEST", e);
     } catch(IllegalArgumentException e) {
       throw new SignException("Invalid signing key", e);
+    } catch (IOException e) {
+      throw new SignException("cannot read key.", e);
     } catch (Exception e) {
       throw new SignException("Could not instantiate Ed25519Provider", e);
     }
@@ -55,9 +64,11 @@ public class Ed25519Provider implements SignProvider {
     }
   }
 
-  public void verify(byte[] key, byte[] content, byte[] signed) throws SignException {
+  public void verify(KeyInfo keyInfo, byte[] content, byte[] signed) throws SignException {
     try {
-      final Ed25519Verify verifier = new Ed25519Verify(key);
+      final String key = Files.readString(Paths.get(keyInfo.getPath()),
+          StandardCharsets.US_ASCII);
+      final Ed25519Verify verifier = new Ed25519Verify(Encoder.hexToBytes(key));
       verifier.verify(signed, content);
     } catch(GeneralSecurityException e) {
       throw new SignException("Verification did not pass", e);

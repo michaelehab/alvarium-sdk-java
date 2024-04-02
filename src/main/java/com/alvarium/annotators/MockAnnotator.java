@@ -18,41 +18,41 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
-import com.alvarium.hash.HashProviderFactory;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
-import com.alvarium.hash.HashTypeException;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 /**
  * a dummy annotator to be used in unit tests
  */
 class MockAnnotator implements Annotator {
-  private final MockAnnotatorConfig cfg;
-  private final HashType hash;
+  private final MockAnnotatorConfig mockCfg;
+  private final HashProvider hash;
+  private final HashType hashType;
   private final AnnotationType kind;
-  private final SignatureInfo signature;
+  private final KeyInfo publicKey;
 
-  protected MockAnnotator(MockAnnotatorConfig cfg, HashType hash, SignatureInfo signature) {
-    this.cfg = cfg;
+  protected MockAnnotator(MockAnnotatorConfig mockCfg, SdkInfo cfg, HashProvider hash) {
+    this.mockCfg = mockCfg;
     this.hash = hash;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.MOCK;
-    this.signature = signature;
+    this.publicKey = cfg.getSignature().getPublicKey();
   }
 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
-    final HashProviderFactory hashFactory = new HashProviderFactory();
     try {
-      final String key = hashFactory.getProvider(hash).derive(data);
+      final String key = hash.derive(data);
       final String host = InetAddress.getLocalHost().getHostName();
-      final String sig = signature.getPublicKey().getType().toString();
+      final String sig = this.publicKey.getType().toString();
 
-      final Annotation annotation = new Annotation(key, hash, host, kind, sig, cfg.getShouldSatisfy(), Instant.now());
+      final Annotation annotation = new Annotation(key, hashType, host, kind, sig, mockCfg.getShouldSatisfy(), Instant.now());
       return annotation;
-    } catch (HashTypeException e) {
-      throw new AnnotatorException("failed to hash data", e);
     } catch (UnknownHostException e) {
       throw new AnnotatorException("Could not get hostname", e);
     }

@@ -24,29 +24,37 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.Logger;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 class TpmAnnotator extends AbstractAnnotator implements Annotator {
-  private final HashType hash;
+  private final HashProvider hash;
+  private final SignProvider signature;
+  private final HashType hashType;
   private final AnnotationType kind;
-  private final SignatureInfo signature;
+  private final KeyInfo privateKey;
   private final String directTpmPath = "/dev/tpm0";
   private final String tpmKernelManagedPath = "/dev/tpmrm0";
 
-  protected TpmAnnotator(HashType hash, SignatureInfo signature, Logger logger) {
+  protected TpmAnnotator(SdkInfo cfg, HashProvider hash, SignProvider signature, Logger logger) {
     super(logger);
     this.hash = hash;
-    this.signature = signature;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.TPM;
+    this.signature = signature;
+    this.privateKey = cfg.getSignature().getPrivateKey();
   }
 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
     
-    final String key = super.deriveHash(hash, data);
+    final String key = hash.derive(data);
 
     String host = "";
     boolean isSatisfied;
@@ -63,15 +71,20 @@ class TpmAnnotator extends AbstractAnnotator implements Annotator {
 
     final Annotation annotation = new Annotation(
           key,
-          hash,
+          hashType,
           host,
           kind,
           null,
           isSatisfied,
           Instant.now());
     
-    final String annotationSignature = super.signAnnotation(signature.getPrivateKey(), annotation);
-    annotation.setSignature(annotationSignature);
+    try {
+      final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+      annotation.setSignature(annotationSignature);
+    }
+    catch (SignException ex) {
+      this.logger.error("Error during TpmAnnotator execution: ",ex);
+    }
     return annotation;
   }
 

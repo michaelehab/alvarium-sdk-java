@@ -20,10 +20,14 @@ import java.time.Instant;
 
 import org.apache.logging.log4j.Logger;
 
+import com.alvarium.SdkInfo;
 import com.alvarium.contracts.Annotation;
 import com.alvarium.contracts.AnnotationType;
+import com.alvarium.hash.HashProvider;
 import com.alvarium.hash.HashType;
-import com.alvarium.sign.SignatureInfo;
+import com.alvarium.sign.KeyInfo;
+import com.alvarium.sign.SignException;
+import com.alvarium.sign.SignProvider;
 import com.alvarium.utils.PropertyBag;
 
 /**
@@ -31,20 +35,24 @@ import com.alvarium.utils.PropertyBag;
  * change or transformation
  */
 class SourceAnnotator extends AbstractAnnotator implements Annotator {
-  private final HashType hash;
+  private final HashProvider hash;
+  private final SignProvider signature;
+  private final HashType hashType;
   private final AnnotationType kind;
-  private final SignatureInfo signatureInfo;
+  private final KeyInfo privateKey;
   
-  protected SourceAnnotator(HashType hash, SignatureInfo signatureInfo, Logger logger) {
+  protected SourceAnnotator(SdkInfo cfg, HashProvider hash, SignProvider signature, Logger logger) {
     super(logger);
     this.hash = hash;
+    this.hashType = cfg.getHash().getType();
     this.kind = AnnotationType.SOURCE;
-    this.signatureInfo = signatureInfo;
+    this.signature = signature;
+    this.privateKey = cfg.getSignature().getPrivateKey();
   }  
 
   public Annotation execute(PropertyBag ctx, byte[] data) throws AnnotatorException {
     // hash incoming data
-    final String key = super.deriveHash(this.hash, data);
+    final String key = hash.derive(data);
 
     // get hostname if available
     String host = "";
@@ -59,11 +67,16 @@ class SourceAnnotator extends AbstractAnnotator implements Annotator {
     isSatisfied = true;
 
     // create an annotation without signature
-    final Annotation annotation = new Annotation(key, this.hash, host, this.kind, null, isSatisfied,
+    final Annotation annotation = new Annotation(key, hashType, host, this.kind, null, isSatisfied,
         Instant.now());
     
-    final String signature = super.signAnnotation(signatureInfo.getPrivateKey(), annotation);
-    annotation.setSignature(signature);
+    try {
+      final String annotationSignature = this.signature.sign(this.privateKey, annotation.toString().getBytes());
+      annotation.setSignature(annotationSignature);
+    }
+    catch (SignException ex) {
+      this.logger.error("Error during SourceAnnotator execution: ",ex);
+    }
     return annotation;
   } 
 }
