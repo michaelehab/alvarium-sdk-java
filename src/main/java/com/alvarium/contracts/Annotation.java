@@ -133,6 +133,7 @@ public class Annotation implements Serializable {
     private String getTagValue(LayerType layer) {
       switch(layer){
         case Application:
+        case CiCd:
           return System.getenv(TAG_ENV_KEY) == null ? "" : System.getenv(TAG_ENV_KEY);
         default:
           break;
