@@ -79,6 +79,8 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
             this.logger.error("Error during ChecksumAnnotator execution: ",e);
         }
 
+        this.logger.error("Environment value of TAG is " + System.getenv("TAG"));
+
         final Annotation annotation = new Annotation(
             key, 
             this.hash, 
