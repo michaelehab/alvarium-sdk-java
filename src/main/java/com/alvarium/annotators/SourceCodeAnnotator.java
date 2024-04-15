@@ -82,7 +82,7 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
             this.logger.error("Error during SourceCodeAnnotator execution: ",e);
         }
 
-        this.logger.error("Environment value of TAG is " + System.getenv("TAG"));
+        this.logger.debug("Environment value of TAG is " + System.getenv("TAG"));
 
         final Annotation annotation = new Annotation(
                 key,
