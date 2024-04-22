@@ -135,7 +135,7 @@ public class Annotation implements Serializable {
         case Application:
         case CiCd:
           //System.out.println("Environment value of " + TAG_ENV_KEY + " is " + System.getenv(TAG_ENV_KEY));
-          return System.getenv(TAG_ENV_KEY) == null ? "" : System.getenv(TAG_ENV_KEY);
+          return System.getenv(TAG_ENV_KEY) == null ? "INVALID_TAG" : System.getenv(TAG_ENV_KEY);
         default:
           break;
       }
