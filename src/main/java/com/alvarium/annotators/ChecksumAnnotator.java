@@ -79,8 +79,6 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
             this.logger.error("Error during ChecksumAnnotator execution: ",e);
         }
 
-        this.logger.debug("Environment value of TAG is " + System.getenv("TAG"));
-
         final Annotation annotation = new Annotation(
             key, 
             this.hash, 
@@ -91,6 +89,8 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
             isSatisfied, 
             Instant.now()
         );
+
+        annotation.setTag(ctx.getProperty("CiCdTag", String.class));
 
         final String annotationSignature = super.signAnnotation(
             this.signature.getPrivateKey(), 

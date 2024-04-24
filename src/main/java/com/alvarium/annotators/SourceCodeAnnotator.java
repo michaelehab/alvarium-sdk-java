@@ -82,17 +82,18 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
             this.logger.error("Error during SourceCodeAnnotator execution: ",e);
         }
 
-        this.logger.debug("Environment value of TAG is " + System.getenv("TAG"));
-
         final Annotation annotation = new Annotation(
-                key,
-                hash,
-                host,
-                layer,
-                kind,
-                null,
-                isSatisfied,
-                Instant.now());
+            key,
+            hash,
+            host,
+            layer,
+            kind,
+            null,
+            isSatisfied,
+            Instant.now()
+        );
+        
+        annotation.setTag(ctx.getProperty("CiCdTag", String.class));
 
         final String annotationSignature = super.signAnnotation(signature.getPrivateKey(), annotation);
         annotation.setSignature(annotationSignature);

@@ -34,7 +34,7 @@ public class Annotation implements Serializable {
   private final String key;
   private final HashType hash;
   private final String host;
-  private final String tag;
+  private String tag;
   private final LayerType layer;
   private final AnnotationType kind;
   private String signature;
@@ -67,6 +67,9 @@ public class Annotation implements Serializable {
       this.signature = signature;
     }
     
+    public void setTag(String tag){
+      this.tag = tag;
+    }
     // getters
 
     public String getId() {
