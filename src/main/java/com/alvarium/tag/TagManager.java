@@ -1,27 +1,55 @@
+/*******************************************************************************
+ * Copyright 2024 Dell Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
+ *******************************************************************************/
 package com.alvarium.tag;
 
 import com.alvarium.contracts.LayerType;
+import java.util.Map;
 
 public class TagManager {
-    private static TagWriter currentTagWriter = new DefaultTagWriter();
-    private static TagWriter defaultTagWriter = new DefaultTagWriter();
+    // TagEnvKey is an environment key used to associate annotations with specific metadata,
+    // aiding in the linkage of scores across different layers of the stack. For instance, in the "app" layer,
+    // it is utilized to retrieve the commit SHA of the workload where the application is running,
+    // which is instrumental in tracing the impact on the current layer's score from the lower layers.
+    private final String TAG_ENV_KEY = "TAG";
+    private LayerType layer;
 
-    public static void setCurrentTagWriter(TagWriter customGetter){
-        currentTagWriter = customGetter;
+    public TagManager(LayerType layer){
+        this.layer = layer;
     }
 
-    public static String getTagValue(LayerType layer){
-        String tagValue = currentTagWriter.getTagValue(layer);
-        if (!tagValue.isEmpty()){
-            return tagValue;
+    private String defaultTagWriter(){
+        switch(layer){
+            case Application:
+              return System.getenv(TAG_ENV_KEY) == null ? "" : System.getenv(TAG_ENV_KEY);
+            default:
+              break;
+          }
+          return "";
+    }
+
+    public String getTagValue(Map<LayerType, TagWriter> overrides){
+        // Check if the overrides map contains a function for the current layer
+        if (overrides != null && overrides.containsKey(layer)) {
+            // Call the function associated with the layer
+            return overrides.get(layer).writeTag();
+        } else {
+            // Call the default function
+            return defaultTagWriter();
         }
-
-        return defaultTagWriter.getTagValue(layer);
     }
 
-    /*
-     * If we want to override default tag value logic for specific layers we can call:
-     * TagManager.setCurrentTagWriter(new CustomTagWriter());
-     * So, TagManager.getTagValue uses the current getter logic and falls back to default one
-     */
+    public String getTagValue(){
+        return getTagValue(null);
+    }
 }

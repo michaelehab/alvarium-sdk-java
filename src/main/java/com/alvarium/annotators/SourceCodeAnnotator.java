@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.logging.log4j.Logger;
 
 import com.alvarium.contracts.Annotation;
@@ -40,6 +41,7 @@ import com.alvarium.hash.HashType;
 import com.alvarium.hash.HashTypeException;
 import com.alvarium.sign.SignatureInfo;
 import com.alvarium.utils.PropertyBag;
+import com.alvarium.tag.TagManager;
 
 class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
 
@@ -47,6 +49,7 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
     private final AnnotationType kind;
     private final SignatureInfo signature;
     private final LayerType layer;
+    private final TagManager tagManager;
 
     private HashProvider hashProvider;
 
@@ -56,6 +59,7 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
         this.kind = AnnotationType.SourceCode;
         this.signature = signature;
         this.layer = layer;
+        this.tagManager = new TagManager(layer);
     }
 
     // File (git working directory) is to be passed in the ctx bag
@@ -93,6 +97,7 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
             Instant.now()
         );
         
+        annotation.setTag(tagManager.getTagValue(ctx.getProperty("overrides", Map.class)));
         // annotation.setTag(ctx.getProperty("CiCdTag", String.class));
 
         final String annotationSignature = super.signAnnotation(signature.getPrivateKey(), annotation);
