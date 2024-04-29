@@ -105,7 +105,8 @@ public class SourceCodeAnnotatorTest {
                 );
 
                 PropertyBag ctx = new ImmutablePropertyBag(
-                        Map.of(AnnotationType.SourceCode.name(), props)
+                        Map.of(AnnotationType.SourceCode.name(), props,
+                        "CiCdTag", "tag")
                 );
 
                 byte[] data = "pipeline1/1".getBytes();

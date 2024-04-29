@@ -20,6 +20,7 @@ import java.time.Instant;
 
 import com.alvarium.hash.HashType;
 import com.alvarium.serializers.InstantConverter;
+import com.alvarium.tag.TagManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -53,7 +54,7 @@ public class Annotation implements Serializable {
     this.key = key;
     this.hash = hash;
     this.host = host;
-    this.tag = getTagValue(layer);
+    this.tag = TagManager.getTagValue(layer);
     this.layer = layer;
     this.kind = kind;
     this.signature = signature;
@@ -131,17 +132,5 @@ public class Annotation implements Serializable {
       Gson gson = new GsonBuilder().registerTypeAdapter(Instant.class, new InstantConverter())
           .create();
       return gson.fromJson(json, Annotation.class);
-    }
-
-    private String getTagValue(LayerType layer) {
-      switch(layer){
-        case Application:
-        case CiCd:
-          //System.out.println("Environment value of " + TAG_ENV_KEY + " is " + System.getenv(TAG_ENV_KEY));
-          return System.getenv(TAG_ENV_KEY) == null ? "INVALID_TAG" : System.getenv(TAG_ENV_KEY);
-        default:
-          break;
-      }
-      return "";
     }
 }

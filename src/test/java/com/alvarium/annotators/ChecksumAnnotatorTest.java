@@ -98,7 +98,8 @@ public class ChecksumAnnotatorTest {
             );
 
             PropertyBag ctx = new ImmutablePropertyBag(
-                    Map.of(AnnotationType.CHECKSUM.name(), props)
+                    Map.of(AnnotationType.CHECKSUM.name(), props,
+                    "CiCdTag", "tag")
             );
             
             byte[] data = "pipeline1/1".getBytes();
