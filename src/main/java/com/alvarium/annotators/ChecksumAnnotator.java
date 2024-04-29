@@ -90,7 +90,7 @@ public class ChecksumAnnotator extends AbstractAnnotator implements Annotator {
             Instant.now()
         );
 
-        annotation.setTag(ctx.getProperty("CiCdTag", String.class));
+        // annotation.setTag(ctx.getProperty("CiCdTag", String.class));
 
         final String annotationSignature = super.signAnnotation(
             this.signature.getPrivateKey(), 

@@ -93,7 +93,7 @@ class SourceCodeAnnotator extends AbstractAnnotator implements Annotator {
             Instant.now()
         );
         
-        annotation.setTag(ctx.getProperty("CiCdTag", String.class));
+        // annotation.setTag(ctx.getProperty("CiCdTag", String.class));
 
         final String annotationSignature = super.signAnnotation(signature.getPrivateKey(), annotation);
         annotation.setSignature(annotationSignature);
