@@ -18,6 +18,7 @@ import java.util.Map;
 
 public interface PropertyBag {
   public <T> T getProperty(String key, Class<T> c);
+  public boolean hasProperty(String key);
 
   public Map<String, Object> toMap();
 }
