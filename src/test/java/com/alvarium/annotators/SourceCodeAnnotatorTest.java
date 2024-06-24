@@ -95,9 +95,9 @@ public class SourceCodeAnnotatorTest {
                 final File checksumFile = dir.newFile("checksum");
     
                 final HashProvider hash = new HashProviderFactory().getProvider(config.getHash().getType());
-                String hashAndPath = hash.derive(Files.readAllBytes(f1.toPath())) + "  " + f1.toPath().toString() + "\n";
-                hashAndPath = hashAndPath + hash.derive(Files.readAllBytes(f2.toPath())) + "  " + f2.toPath().toString() + "\n";
-                final String checksum = hash.derive(hashAndPath.getBytes());
+                String hashAndPath = hash.derive(Files.readAllBytes(f1.toPath())).toLowerCase() + "  " + f1.toPath().toString() + "\n";
+                hashAndPath = hashAndPath + hash.derive(Files.readAllBytes(f2.toPath())).toLowerCase() + "  " + f2.toPath().toString() + "\n";
+                final String checksum = hash.derive(hashAndPath.getBytes()).toLowerCase();
     
                 Files.write(checksumFile.toPath(), checksum.getBytes());
     
